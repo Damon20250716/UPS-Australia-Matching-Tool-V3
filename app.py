@@ -17,7 +17,7 @@ def normalize_name(name):
         return ""
     name = str(name).lower()
     name = re.sub(r'[^a-z0-9 ]', ' ', name)
-    name = re.sub(r'\b(pty|ltd|limited|aust|australia|co|corp|inc|the|and|&|.)\b', '', name)
+    name = re.sub(r'\b(pty|ltd|limited|aust|australia|co|corp|inc|the|and|&)\b', '', name)
     name = re.sub(r'\s+', ' ', name).strip()
     return name
 
@@ -37,20 +37,19 @@ def match_account(recipient_name, accounts_df):
     scores = []
     for _, row in accounts_df.iterrows():
         acct_name = row['Customer Name']
+        acct_number = row['Account Number']
         norm_account = normalize_name(acct_name)
         score = fuzz.partial_ratio(norm_recipient, norm_account)
         first_two_words_match = norm_recipient.split()[:2] == norm_account.split()[:2]
         if first_two_words_match:
-            score += 5  # bonus for first two words match
-        scores.append((row['Account Number'], acct_name, min(score, 100)))
+            score += 5  # bonus for first-two-word match
+        scores.append((acct_number, acct_name, min(score, 100), first_two_words_match))
 
-    scores = sorted(scores, key=lambda x: x[2], reverse=True)
+    # Sort by first_two_words match, then by score
+    scores = sorted(scores, key=lambda x: (x[3], x[2]), reverse=True)
     top_matches = scores[:max_suggestions]
 
     if not top_matches or top_matches[0][2] < similarity_threshold:
-        return "Cash", top_matches
-
-    if len(top_matches) > 1 and (top_matches[0][2] - top_matches[1][2]) < 5:
         return "Cash", top_matches
 
     return top_matches[0][0], top_matches
